@@ -1,4 +1,5 @@
 import { Microphone, microphoneMessage } from './audio.mjs';
+import { TunedChime } from './chimes.mjs';
 import { Headstock } from './headstock.mjs';
 import { beginEdit, confirmDelete, renderLibrary } from './library.mjs';
 import { chromaticReading, instrumentReading, labelOf } from './notes.mjs';
@@ -33,11 +34,15 @@ const headstock = new Headstock(get('instrument-art'),get('pegs'), index => {
   state.manual = state.manual === index ? null : index;
   updateReading();
 });
-const mic = new Microphone(({ hz, held },rms,samples) => {
+const chime = new TunedChime();
+const mic = new Microphone(({ hz, held }, rms, samples, time) => {
   state.hz = hz;
   state.held = held;
   renderWave(samples,rms);
-  updateReading();
+  const reading = updateReading();
+  if (state.microphone === 'on' && chime.update(state.mode, reading, held, time)) {
+    mic.playConfirmation(state.mode);
+  }
 }, () => {
   setMicrophone('off');
   showMicError('Se interrumpió el acceso al micrófono. Vuelve a activarlo para continuar.');
@@ -48,7 +53,7 @@ function updateReading() {
   const { hz, held, manual, microphone } = state;
   const reading = hz ? tuning ? instrumentReading(hz,tuning,manual) : chromaticReading(hz) : null;
   renderReading(hz,reading,tuning,manual,microphone === 'on',held);
-  if (!tuning) return;
+  if (!tuning) return reading;
   const index = reading?.index ?? manual;
   headstock.select(index);
   get('auto').setAttribute('aria-pressed', manual === null);
@@ -56,6 +61,7 @@ function updateReading() {
     ? hz ? 'Cuerda sin identificar. Selecciónala.' : 'Toca una cuerda o selecciónala.'
     : (tuning.notes.length - index) + 'ª cuerda · ' + labelOf(tuning.notes[index],tuning.flats);
   if (get('string-caption').textContent !== caption) get('string-caption').textContent = caption;
+  return reading;
 }
 function updateStar() {
   const favorite = library.favorites.includes(state.selection[state.mode]);
@@ -107,6 +113,7 @@ function setMicrophone(status) {
   if (!active) {
     state.hz = null;
     state.held = false;
+    chime.reset();
     renderWave();
   }
   updateReading();
