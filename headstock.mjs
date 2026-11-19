@@ -9,6 +9,11 @@ const layouts = {
     pegs: [[56,188,126],[56,155,125],[56,122,123],[56,89,120],[56,56,116],[56,23,113]],
     head: 'line',
   },
+  bass: {
+    pegs: [[55,169,125],[55,125,123],[55,81,119],[55,37,115]],
+    head: 'line',
+    stringWidth: 1.8,
+  },
   uke: {
     pegs: [[55,126,126],[55,67,132],[275,67,198],[275,126,204]],
     head: 'uke',
@@ -85,7 +90,7 @@ export class Headstock {
     this.selected = selected;
     this.drawnLayout = this.layout;
     [...this.container.children].forEach((button, index) => button.setAttribute('aria-pressed', selected === index));
-    const { head, pegs } = this.layout;
+    const { head, pegs, stringWidth = 1.2 } = this.layout;
     const ctx = this.canvas.getContext('2d');
     ctx.setTransform(2,0,0,2,0,0);
     ctx.clearRect(0,0,330,260);
@@ -120,7 +125,8 @@ export class Headstock {
     pegs.forEach(([,y,postX], index) => {
       const x = 146 + 38 * index / (pegs.length - 1);
       const active = index === selected;
-      line(ctx, [[x,260],[x,223],[postX,y]], active ? '#bcf5ce' : '#8aa095', active ? 1.6 : 1.2 - index * .09);
+      const width = stringWidth - index * .09;
+      line(ctx, [[x,260],[x,223],[postX,y]], active ? '#bcf5ce' : '#8aa095', active ? stringWidth + .4 : width);
       circle(ctx,postX,y,2.5,active ? '#bcf5ce' : '#8fa497','#405348');
     });
     line(ctx, [[140,222],[190,222]], '#b0bcb3', 2.4);

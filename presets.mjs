@@ -2,7 +2,8 @@ import { readNote } from './notes.mjs';
 
 export const instruments = {
   guitar: { name: 'Guitarra', count: 6, standard: 'standard' },
-  uke: { name: 'Ukulele soprano', count: 4, standard: 'soprano' },
+  bass: { name: 'Bajo de cuatro cuerdas', count: 4, standard: 'bass-standard', headstock: 'bass' },
+  uke: { name: 'Ukulele soprano', count: 4, standard: 'soprano', headstock: 'uke' },
 };
 const create = (id, name, notes, group = 'Guitarra', instrument = 'guitar', flats = false) =>
   ({ id, name, notes: notes.split(' ').map(readNote), group, instrument, flats });
@@ -20,6 +21,8 @@ export const presets = [
   create('facgae', 'FACGAE', 'F2 A2 C3 G3 A3 E4', alternative),
   create('dadfae', 'DADF♯AE', 'D2 A2 D3 F#3 A3 E4', alternative),
   create('facgbe', 'FACGBE', 'F2 A2 C3 G3 B3 E4', alternative),
+  create('bass-standard', 'Estándar', 'E1 A1 D2 G2', 'Bajo de cuatro cuerdas', 'bass'),
+  create('bass-drop-d', 'Drop D', 'D1 A1 D2 G2', 'Bajo de cuatro cuerdas', 'bass'),
   create('soprano', 'Estándar · High G', 'G4 C4 E4 A4', 'Ukulele soprano', 'uke'),
   create('low-g', 'Low G', 'G3 C4 E4 A4', 'Ukulele soprano', 'uke'),
 ];

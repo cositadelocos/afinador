@@ -32,6 +32,7 @@
     <nav class="modes" aria-label="Modo del afinador">
       <button type="button" data-mode="chromatic" aria-pressed="false"><span aria-hidden="true" class="mode-icon chromatic-icon">◉</span> Cromático</button>
       <button type="button" data-mode="guitar" aria-pressed="true"><span aria-hidden="true" class="mode-icon string-icon"></span> Guitarra</button>
+      <button type="button" data-mode="bass" aria-pressed="false"><span aria-hidden="true" class="mode-icon string-icon bass-icon"></span> Bajo</button>
       <button type="button" data-mode="uke" aria-pressed="false"><span aria-hidden="true" class="mode-icon string-icon uke-icon"></span> Ukulele</button>
     </nav>
 
@@ -110,7 +111,7 @@
       <label class="form-label" for="tuning-name">Nombre</label>
       <input id="tuning-name" name="name" type="text" maxlength="48" required placeholder="Mi afinación">
       <label class="form-label" for="tuning-instrument">Instrumento</label>
-      <select id="tuning-instrument" name="instrument"><option value="guitar">Guitarra</option><option value="uke">Ukulele soprano</option></select>
+      <select id="tuning-instrument" name="instrument"><option value="guitar">Guitarra</option><option value="bass">Bajo de cuatro cuerdas</option><option value="uke">Ukulele soprano</option></select>
       <div class="editor-strings" id="editor-strings"></div>
       <p id="editor-error" class="error" role="alert" hidden></p>
       <div class="dialog-actions"><button class="button secondary" type="button" data-close>Cancelar</button><button class="button primary" type="submit">Guardar afinación</button></div>

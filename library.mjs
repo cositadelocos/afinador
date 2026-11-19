@@ -1,4 +1,5 @@
 import { flats, labelOf, minMidi, maxMidi, sharps } from './notes.mjs';
+import { instruments } from './presets.mjs';
 
 const get = id => document.getElementById(id);
 const create = (tag, value, className) => {
@@ -19,7 +20,7 @@ export function renderLibrary(items, favorites, events) {
     const item = create('article', null, 'library-item');
     const text = create('div', null, 'item-text');
     text.append(create('strong', tuning.name),create('p', tuning.notes.map(note => labelOf(note,tuning.flats)).join(' · ')));
-    if (tuning.instrument === 'uke') text.append(create('p', 'Ukulele soprano'));
+    if (tuning.instrument !== 'guitar') text.append(create('p', instruments[tuning.instrument].name));
     const controls = create('div',null,'item-actions');
     const favorite = favorites.includes(tuning.id);
     const star = action(favorite ? '★' : '☆', () => events.favorite(tuning.id), favorite);

@@ -84,7 +84,7 @@ function renderMode() {
     presetSelect.replaceChildren(...groups.values());
     presetSelect.value = tuning.id;
     updateStar();
-    headstock.render(state.mode === 'uke' ? 'uke' : state.layout,tuning,state.manual);
+    headstock.render(instruments[state.mode].headstock ?? state.layout,tuning,state.manual);
   }
   updateReading();
 }
