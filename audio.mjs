@@ -61,7 +61,7 @@ export class Microphone {
           last = time;
           analyser.getFloatTimeDomainData(samples);
           const { hz, rms } = this.detector.detect(samples, context.sampleRate);
-          this.onFrame(this.tracker.update(hz), rms, samples);
+          this.onFrame(this.tracker.update(hz, time), rms, samples);
         }
         if (this.session === session) session.frame = requestAnimationFrame(tick);
       };

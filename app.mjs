@@ -12,7 +12,7 @@ const findPreset = id => presets.find(tuning => tuning.id === id);
 const standard = instrument => findPreset(instruments[instrument].standard);
 let library = readLibrary();
 const state = {
-  mode: 'guitar', layout: 'three', manual: null, hz: null,
+  mode: 'guitar', layout: 'three', manual: null, hz: null, held: false,
   selection: Object.fromEntries(Object.entries(instruments).map(([key, data]) => [key, data.standard])),
   microphone: 'off',
 };
@@ -33,8 +33,9 @@ const headstock = new Headstock(get('instrument-art'),get('pegs'), index => {
   state.manual = state.manual === index ? null : index;
   updateReading();
 });
-const mic = new Microphone((hz,rms,samples) => {
+const mic = new Microphone(({ hz, held },rms,samples) => {
   state.hz = hz;
+  state.held = held;
   renderWave(samples,rms);
   updateReading();
 }, () => {
@@ -44,9 +45,9 @@ const mic = new Microphone((hz,rms,samples) => {
 
 function updateReading() {
   const tuning = current();
-  const { hz, manual, microphone } = state;
+  const { hz, held, manual, microphone } = state;
   const reading = hz ? tuning ? instrumentReading(hz,tuning,manual) : chromaticReading(hz) : null;
-  renderReading(hz,reading,tuning,manual,microphone === 'on');
+  renderReading(hz,reading,tuning,manual,microphone === 'on',held);
   if (!tuning) return;
   const index = reading?.index ?? manual;
   headstock.select(index);
@@ -105,6 +106,7 @@ function setMicrophone(status) {
   indicator.lastChild.textContent = active ? ' Micrófono activo' : pending ? ' Solicitando acceso' : ' Micrófono apagado';
   if (!active) {
     state.hz = null;
+    state.held = false;
     renderWave();
   }
   updateReading();

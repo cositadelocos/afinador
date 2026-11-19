@@ -3,16 +3,18 @@ import { frequencyOf, labelOf, noteOf, tuningState } from './notes.mjs';
 const get = id => document.getElementById(id);
 const elements = Object.fromEntries(['detected','note','octave','frequency','cents','target','target-label','needle','advice','wave'].map(id => [id,get(id)]));
 const tuner = elements.detected.closest('.tuner');
+const noteStatus = tuner.querySelector('.reading .eyebrow');
 const formatter = new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1, useGrouping: false });
 const hzText = hz => formatter.format(hz);
 const setText = (node, value) => { if (node.textContent !== value) node.textContent = value; };
 
-export function renderReading(hz, reading, tuning, manual, listening) {
+export function renderReading(hz, reading, tuning, manual, listening, held) {
   const current = reading && noteOf(reading.midi, tuning?.flats);
   const target = reading?.target ?? (manual === null ? null : tuning?.notes[manual]);
   const state = tuningState(reading?.cents);
   const precise = reading ? Math.round(reading.cents) : null;
   const index = reading?.index ?? manual;
+  setText(noteStatus, held ? 'Última lectura' : 'Nota detectada');
   setText(elements.note, current?.name ?? '—');
   setText(elements.octave, String(current?.octave ?? ''));
   elements.detected.setAttribute('aria-label', current ? current.name + current.octave : 'Sin nota detectada');

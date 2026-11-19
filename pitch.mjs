@@ -64,30 +64,38 @@ export class PitchDetector {
   }
 }
 
+const holdDurationMs = 1600;
+const signalGapMs = 120;
+
 export class PitchTracker {
   samples = [];
-  misses = 0;
   value = null;
-  update(hz) {
-    if (!hz) {
-      if (++this.misses >= 4) this.reset();
-      return this.value;
+  lastConfirmedAt = -Infinity;
+  lastSampleAt = -Infinity;
+
+  update(hz, time) {
+    const age = time - this.lastConfirmedAt;
+    if (age >= holdDurationMs) this.value = null;
+    if (hz) {
+      const previous = this.samples.at(-1);
+      const jump = previous && Math.abs(Math.log2(hz / previous)) > 0.075;
+      if (time - this.lastSampleAt >= signalGapMs || jump) this.samples = [];
+      this.samples.push(hz);
+      this.lastSampleAt = time;
+      if (this.samples.length > 5) this.samples.shift();
+      if (this.samples.length >= 2) {
+        const sorted = [...this.samples].sort((a, b) => a - b);
+        this.value = sorted[Math.floor(sorted.length / 2)];
+        this.lastConfirmedAt = time;
+      }
     }
-    this.misses = 0;
-    if (this.samples.length && Math.abs(Math.log2(hz / this.samples.at(-1))) > 0.075) this.samples = [];
-    this.samples.push(hz);
-    if (this.samples.length > 5) this.samples.shift();
-    if (this.samples.length >= 2) {
-      const sorted = [...this.samples].sort((a, b) => a - b);
-      this.value = sorted[Math.floor(sorted.length / 2)];
-    } else {
-      this.value = null;
-    }
-    return this.value;
+    return { hz: this.value, held: this.value !== null && time - this.lastConfirmedAt >= signalGapMs };
   }
+
   reset() {
     this.samples = [];
-    this.misses = 0;
     this.value = null;
+    this.lastConfirmedAt = -Infinity;
+    this.lastSampleAt = -Infinity;
   }
 }
