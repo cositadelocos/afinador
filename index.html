@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101211">
+  <meta name="color-scheme" content="dark">
+  <title>cositadelocos · Afinador</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.mjs"></script>
+</head>
+<body>
+  <header class="masthead">
+    <div class="mast-inner">
+      <a class="brand" href="./">
+        <span class="brand-text">cositadelocos <small>Afinador</small></span>
+        <span class="brand-mark"><img src="./silla.png" width="3840" height="2342" alt=""></span>
+      </a>
+      <nav class="top-nav" aria-label="Secciones">
+        <a class="current" href="#afinador">Afinador</a>
+        <a href="#biblioteca">Mis afinaciones</a>
+        <button type="button" id="open-search" class="search-link"><span class="search-icon" aria-hidden="true"></span><span>Buscar canciones</span></button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="afinador">
+    <div class="page-heading">
+      <h1>Afinador<span>.</span></h1>
+      <span class="reference"><span aria-hidden="true">A4</span> 440 Hz</span>
+    </div>
+    <nav class="modes" aria-label="Modo del afinador">
+      <button type="button" data-mode="chromatic" aria-pressed="false"><span aria-hidden="true" class="mode-icon chromatic-icon">◉</span> Cromático</button>
+      <button type="button" data-mode="guitar" aria-pressed="true"><span aria-hidden="true" class="mode-icon string-icon"></span> Guitarra</button>
+      <button type="button" data-mode="uke" aria-pressed="false"><span aria-hidden="true" class="mode-icon string-icon uke-icon"></span> Ukulele</button>
+    </nav>
+
+    <div class="workspace">
+      <section class="panel tuner" aria-labelledby="readout-heading" data-state="idle">
+        <header class="panel-header">
+          <h2 id="readout-heading">Lectura de tono</h2>
+          <span id="mic-status" class="mic-status"><i></i> Micrófono apagado</span>
+        </header>
+        <div class="reading">
+          <div class="eyebrow">Nota detectada</div>
+          <div class="detected" id="detected" aria-label="Sin nota detectada"><span id="note">—</span><span id="octave"></span></div>
+          <div class="frequency"><span id="frequency">—</span> Hz</div>
+        </div>
+        <div class="meter">
+          <div class="meter-labels"><span>Grave</span><span>Afinado</span><span>Agudo</span></div>
+          <div class="ruler" aria-hidden="true"><div class="ticks"></div><div class="zero"></div><div class="needle" id="needle"></div></div>
+          <div class="meter-values" aria-hidden="true"><span>−50</span><span>−25</span><span>0</span><span>+25</span><span>+50</span></div>
+        </div>
+        <div class="measurements">
+          <div><span>Desviación</span><strong id="cents">—</strong></div>
+          <div><span id="target-label">Frecuencia objetivo</span><strong id="target">—</strong></div>
+          <div class="advice" id="advice" role="status">Activa el micrófono</div>
+        </div>
+        <footer class="mic-controls">
+          <button type="button" class="mic-button" id="mic-button"><span class="mic-icon" aria-hidden="true"></span><span id="mic-button-label">Activar micrófono</span></button>
+          <div class="signal">
+            <span>Señal de entrada</span>
+            <canvas id="wave" width="232" height="52" aria-hidden="true"></canvas>
+          </div>
+        </footer>
+        <p id="mic-error" class="error" role="alert" hidden></p>
+      </section>
+
+      <section id="instrument-panel" class="panel instrument" aria-labelledby="instrument-heading">
+        <header class="panel-header">
+          <h2 id="instrument-heading">Guitarra</h2>
+          <div class="layouts" role="group" aria-label="Modelo del clavijero">
+            <button type="button" data-layout="three" aria-pressed="true" title="Clavijas a ambos lados">3+3</button>
+            <button type="button" data-layout="line" aria-pressed="false" title="Clavijas en línea">6 en línea</button>
+          </div>
+        </header>
+        <div class="preset-field">
+          <label for="preset">Afinación</label>
+          <div class="preset-row">
+            <select id="preset"></select>
+            <button class="star-button" id="preset-star" type="button" aria-label="Marcar como favorita" aria-pressed="false">☆</button>
+          </div>
+        </div>
+        <div class="diagram">
+          <div id="headstock" class="headstock">
+            <canvas id="instrument-art" width="660" height="520" aria-hidden="true"></canvas>
+            <div id="pegs" role="group" aria-label="Seleccionar cuerda"></div>
+          </div>
+        </div>
+        <footer class="instrument-footer">
+          <button id="auto" type="button" aria-pressed="true"><i></i> Automático</button>
+          <span id="string-caption">Toca una cuerda o selecciónala.</span>
+        </footer>
+      </section>
+    </div>
+
+    <section class="panel library" id="biblioteca" aria-labelledby="library-heading">
+      <div class="library-header">
+        <div><h2 id="library-heading">Mis afinaciones</h2><p>Guarda tus afinaciones personalizadas y favoritas.</p></div>
+        <button class="button secondary" id="new-tuning" type="button"><span aria-hidden="true">+</span> Crear afinación</button>
+      </div>
+      <div id="library-items" class="library-items"></div>
+      <p id="library-error" class="error" role="alert" hidden></p>
+    </section>
+  </main>
+
+  <dialog id="editor">
+    <form id="editor-form">
+      <div class="dialog-top"><h2 id="editor-title">Crear afinación</h2><button class="close" type="button" data-close aria-label="Cerrar">×</button></div>
+      <label class="form-label" for="tuning-name">Nombre</label>
+      <input id="tuning-name" name="name" type="text" maxlength="48" required placeholder="Mi afinación">
+      <label class="form-label" for="tuning-instrument">Instrumento</label>
+      <select id="tuning-instrument" name="instrument"><option value="guitar">Guitarra</option><option value="uke">Ukulele soprano</option></select>
+      <div class="editor-strings" id="editor-strings"></div>
+      <p id="editor-error" class="error" role="alert" hidden></p>
+      <div class="dialog-actions"><button class="button secondary" type="button" data-close>Cancelar</button><button class="button primary" type="submit">Guardar afinación</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="delete-dialog">
+    <form method="dialog">
+      <div class="dialog-top"><h2>Eliminar afinación</h2><button class="close" type="submit" value="cancel" aria-label="Cerrar">×</button></div>
+      <p id="delete-message"></p>
+      <div class="dialog-actions"><button class="button secondary" value="cancel">Cancelar</button><button class="button primary" value="delete">Eliminar</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="song-dialog">
+    <div class="dialog-top"><h2>Buscar canciones</h2><button class="close" type="button" data-close aria-label="Cerrar">×</button></div>
+    <label class="form-label" for="song-query">Canción o artista</label>
+    <input id="song-query" type="search" placeholder="Never Meant, American Football…">
+    <p class="muted">Catálogo local de afinaciones verificadas.</p>
+    <div id="song-results" aria-live="polite"></div>
+  </dialog>
+
+  <footer class="site-footer"><span>cositadelocos · Afinador cromático</span><span>Audio procesado en tu dispositivo</span></footer>
+</body>
+</html>
+
