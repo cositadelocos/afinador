@@ -17,12 +17,13 @@ export function readNote(label) {
   const offset = accidental === '#' || accidental === '♯' ? 1 : accidental ? -1 : 0;
   return (Number(octave) + 1) * 12 + sharps.indexOf(name) + offset;
 }
-export function chromaticReading(hz) {
-  const midi = Math.round(midiOf(hz));
-  return { midi, target: midi, cents: centsFrom(hz, midi), index: null };
+export function chromaticReading(hz, previousMidi = null) {
+  const pitch = midiOf(hz);
+  const midi = previousMidi !== null && Math.abs(pitch - previousMidi) <= .55 ? previousMidi : Math.round(pitch);
+  return { midi, target: midi, cents: 100 * (pitch - midi), index: null };
 }
-export function instrumentReading(hz, tuning, manual) {
-  const chromatic = chromaticReading(hz);
+export function instrumentReading(hz, tuning, manual, previousMidi = null) {
+  const chromatic = chromaticReading(hz, previousMidi);
   const distances = tuning.notes.map((midi, index) => ({ index, distance: Math.abs(centsFrom(hz, midi)) }))
     .sort((a, b) => a.distance - b.distance);
   const [nearest, second] = distances;

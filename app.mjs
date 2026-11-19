@@ -1,8 +1,8 @@
-import { Microphone, microphoneMessage } from './audio.mjs';
+import { Microphone, microphoneMessage } from './audio.mjs?v=2';
 import { TunedChime } from './chimes.mjs';
 import { Headstock } from './headstock.mjs';
 import { beginEdit, confirmDelete, renderLibrary } from './library.mjs';
-import { chromaticReading, instrumentReading, labelOf } from './notes.mjs';
+import { chromaticReading, instrumentReading, labelOf } from './notes.mjs?v=2';
 import { instruments, presets } from './presets.mjs';
 import { renderReading, renderWave } from './readout.mjs';
 import { searchSongs } from './songs.mjs';
@@ -13,7 +13,7 @@ const findPreset = id => presets.find(tuning => tuning.id === id);
 const standard = instrument => findPreset(instruments[instrument].standard);
 let library = readLibrary();
 const state = {
-  mode: 'guitar', layout: 'three', manual: null, hz: null, held: false,
+  mode: 'guitar', layout: 'three', manual: null, hz: null, midi: null, held: false,
   selection: Object.fromEntries(Object.entries(instruments).map(([key, data]) => [key, data.standard])),
   microphone: 'off',
 };
@@ -50,8 +50,9 @@ const mic = new Microphone(({ hz, held }, rms, samples, time) => {
 
 function updateReading() {
   const tuning = current();
-  const { hz, held, manual, microphone } = state;
-  const reading = hz ? tuning ? instrumentReading(hz,tuning,manual) : chromaticReading(hz) : null;
+  const { hz, midi, held, manual, microphone } = state;
+  const reading = hz ? tuning ? instrumentReading(hz,tuning,manual,midi) : chromaticReading(hz,midi) : null;
+  state.midi = reading?.midi ?? null;
   renderReading(hz,reading,tuning,manual,microphone === 'on',held);
   if (!tuning) return reading;
   const index = reading?.index ?? manual;

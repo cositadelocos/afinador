@@ -1,71 +1,153 @@
-// YIN difference function and cumulative mean normalization.
-const windowSize = 768;
+// A gain-normalized YIN difference keeps decaying notes comparable across lags.
+const referenceSamples = 1280;
+const minReferenceSamples = 768;
 const minHz = 15;
 const maxHz = 8200;
-function squaredDifference(samples, stride, lag) {
-  let distance = 0;
-  const offset = lag * stride;
-  for (let i = 0; i < windowSize * stride; i += stride) {
-    const delta = samples[i] - samples[i + offset];
-    distance += delta * delta;
-  }
-  return distance;
-}
+const minRms = .00065;
+const maxPeriodError = .24;
+const strideFor = sampleRate => Math.max(1, Math.round(sampleRate / 48000));
+export const analysisTailSeconds = sampleRate => 1 / minHz + (referenceSamples + 1) * strideFor(sampleRate) / sampleRate;
+
 function refineMinimum(lag, left, center, right) {
   const curvature = left - 2 * center + right;
-  return lag + (curvature ? (left - right) / (2 * curvature) : 0);
+  return lag + (curvature > 0 ? Math.max(-.5, Math.min(.5, (left - right) / (2 * curvature))) : 0);
 }
-function refineShortPeriod(samples, stride, period) {
-  // Measuring several cycles at once reduces the effect of rounding short lags.
-  const cycles = 16;
-  const first = Math.round(period * cycles) - 3;
-  const values = Array.from({ length: 7 }, (_, index) => squaredDifference(samples, stride, first + index));
-  const index = values.indexOf(Math.min(...values));
-  if (index === 0 || index === values.length - 1) return period;
-  return refineMinimum(first + index, values[index - 1], values[index], values[index + 1]) / cycles;
-}
-export class PitchDetector {
-  constructor() {
-    this.curve = new Float32Array(3600);
-  }
-  detect(samples, sampleRate) {
-    const decimation = Math.max(1, Math.round(sampleRate / 48000));
-    const rate = sampleRate / decimation;
-    const first = Math.max(2, Math.floor(rate / maxHz));
-    const last = Math.min(Math.ceil(rate / minHz), Math.floor(samples.length / decimation) - windowSize - 1, this.curve.length - 1);
-    let energy = 0;
-    let sum = 0;
-    for (let i = 0; i < samples.length; i += decimation) {
-      sum += samples[i];
-      energy += samples[i] ** 2;
-    }
-    const length = Math.ceil(samples.length / decimation);
-    const rms = Math.sqrt(Math.max(0, energy / length - (sum / length) ** 2));
-    if (rms < 0.0018 || last <= first) return { hz: null, rms };
 
-    const curve = this.curve;
-    curve[0] = 1;
-    let total = 0;
-    let lag = 0;
-    for (let step = 1; step <= last; step++) {
-      const distance = squaredDifference(samples, decimation, step);
-      total += distance;
-      curve[step] = total ? distance * step / total : 1;
-      if (step > first && curve[step - 1] < 0.17 && curve[step] >= curve[step - 1]) {
-        lag = step - 1;
-        break;
+function periodError(dot, sum, power, reference) {
+  const norm = power - sum * sum / reference.width;
+  if (norm <= 0) return 1;
+  const covariance = dot - sum * reference.sum / reference.width;
+  return Math.max(0, 1 - covariance / Math.sqrt(norm * reference.norm));
+}
+
+function nearMinimum(frame, reference, center, radius, last) {
+  const first = Math.max(2, Math.round(center) - radius);
+  const stop = Math.min(last, Math.round(center) + radius);
+  let best = { lag: center, error: Infinity };
+  let before = Infinity;
+  let current = Infinity;
+  for (let lag = first; lag <= stop; lag++) {
+    let sum = 0;
+    let power = 0;
+    let dot = 0;
+    for (let i = 0; i < reference.width; i++) {
+      const sample = frame[i + lag];
+      sum += sample;
+      power += sample * sample;
+      dot += frame[i] * sample;
+    }
+    const next = periodError(dot, sum, power, reference);
+    if (Number.isFinite(before) && current < best.error && current <= before && current <= next) {
+      best = { lag: refineMinimum(lag - 1, before, current, next), error: current };
+    }
+    before = current;
+    current = next;
+  }
+  return best;
+}
+
+export class PitchDetector {
+  frame = new Float32Array(8192);
+
+  detect(samples, sampleRate) {
+    const stride = strideFor(sampleRate);
+    const rate = sampleRate / stride;
+    const length = Math.floor(samples.length / stride);
+    const first = Math.max(2, Math.floor(rate / maxHz));
+    const last = Math.min(Math.ceil(rate / minHz), length - minReferenceSamples - 1);
+    if (last <= first + 1) return { hz: null, rms: 0 };
+
+    const width = Math.min(referenceSamples, length - last);
+    const frame = this.frame;
+    // The reference starts at the end of the captured buffer, closest to the current sound.
+    const frameLength = width + last;
+    for (let i = 0; i < frameLength; i++) {
+      const end = samples.length - i * stride;
+      let value = 0;
+      for (let j = 1; j <= stride; j++) value += samples[end - j];
+      frame[i] = value / stride;
+    }
+
+    // Apply a low-pass filter from oldest to newest so the newest samples are
+    // compared with history under the same filter, without a window-edge step.
+    const weight = 1 - Math.exp(-2 * Math.PI * 3100 / rate);
+    let firstPass = frame[frameLength - 1];
+    let secondPass = firstPass;
+    let thirdPass = firstPass;
+    let sum = 0;
+    let power = 0;
+    for (let i = frameLength - 1; i >= 0; i--) {
+      firstPass += weight * (frame[i] - firstPass);
+      secondPass += weight * (firstPass - secondPass);
+      thirdPass += weight * (secondPass - thirdPass);
+      frame[i] = thirdPass;
+      if (i < width) {
+        sum += thirdPass;
+        power += thirdPass * thirdPass;
       }
     }
+    const norm = Math.max(0, power - sum * sum / width);
+    const rms = Math.sqrt(norm / width);
+    if (rms < minRms) return { hz: null, rms };
+
+    const reference = { sum, norm, width };
+    let shiftedSum = sum;
+    let shiftedPower = power;
+    let before = Infinity;
+    let current = Infinity;
+    let yinScore = 1;
+    let total = 0;
+    let lag = 0;
+    let error = Infinity;
+    for (let step = 1; step <= last; step++) {
+      const remove = frame[step - 1];
+      const add = frame[step + width - 1];
+      shiftedSum += add - remove;
+      shiftedPower += add * add - remove * remove;
+      let dot = 0;
+      for (let i = 0; i < width; i++) dot += frame[i] * frame[i + step];
+      const next = periodError(dot, shiftedSum, shiftedPower, reference);
+      if (step > first && current < maxPeriodError && yinScore < .27 && current <= before && current < next) {
+        lag = refineMinimum(step - 1, before, current, next);
+        error = current;
+        break;
+      }
+      total += next;
+      yinScore = total ? next * step / total : 1;
+      before = current;
+      current = next;
+    }
     if (!lag) return { hz: null, rms };
-    let refined = refineMinimum(lag, curve[lag - 1], curve[lag], curve[lag + 1]);
-    if (refined < 32 && refined * 16 + 4 < last) refined = refineShortPeriod(samples, decimation, refined);
-    const hz = rate / refined;
+
+    // A strong overtone may fit half or a third of the true period. Only use a
+    // longer period if it matches materially better than the first candidate.
+    if (error > .035) {
+      const original = lag;
+      for (const multiple of [2, 3]) {
+        const center = original * multiple;
+        const radius = Math.max(3, Math.ceil(center * .015));
+        if (center + radius >= last) break;
+        const match = nearMinimum(frame, reference, center, radius, last);
+        if (match.error < error - .03 && match.error < error * .73) {
+          lag = match.lag;
+          error = match.error;
+        }
+      }
+    }
+
+    // Measuring several cycles improves interpolation when a period has few samples.
+    if (lag < 32 && lag * 16 + 4 < last) {
+      const match = nearMinimum(frame, reference, lag * 16, 4, last);
+      if (match.error < .2) lag = match.lag / 16;
+    }
+    const hz = rate / lag;
     return { hz: hz >= minHz && hz <= maxHz ? hz : null, rms };
   }
 }
 
 const holdDurationMs = 1600;
 const signalGapMs = 120;
+const centsBetween = (a, b) => Math.abs(1200 * Math.log2(a / b));
 
 export class PitchTracker {
   samples = [];
@@ -78,14 +160,23 @@ export class PitchTracker {
     if (age >= holdDurationMs) this.value = null;
     if (hz) {
       const previous = this.samples.at(-1);
-      const jump = previous && Math.abs(Math.log2(hz / previous)) > 0.075;
-      if (time - this.lastSampleAt >= signalGapMs || jump) this.samples = [];
+      if (time - this.lastSampleAt >= signalGapMs || (previous && centsBetween(hz, previous) > 42)) {
+        this.samples = [];
+      }
       this.samples.push(hz);
       this.lastSampleAt = time;
-      if (this.samples.length > 5) this.samples.shift();
+      if (this.samples.length > 3) this.samples.shift();
       if (this.samples.length >= 2) {
         const sorted = [...this.samples].sort((a, b) => a - b);
-        this.value = sorted[Math.floor(sorted.length / 2)];
+        const median = sorted.length === 2 ? Math.sqrt(sorted[0] * sorted[1]) : sorted[1];
+        const change = this.value === null ? Infinity : centsBetween(median, this.value);
+        if (change > 42 || age >= signalGapMs) {
+          this.value = median;
+        } else {
+          const smoothingMs = change > 4 ? 36 : 78;
+          const weight = 1 - Math.exp(-age / smoothingMs);
+          this.value *= (median / this.value) ** weight;
+        }
         this.lastConfirmedAt = time;
       }
     }

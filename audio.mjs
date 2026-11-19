@@ -1,4 +1,4 @@
-import { PitchDetector, PitchTracker } from './pitch.mjs';
+import { analysisTailSeconds, PitchDetector, PitchTracker } from './pitch.mjs?v=2';
 import { playChime } from './chimes.mjs';
 
 export function microphoneMessage(error) {
@@ -28,7 +28,7 @@ export class Microphone {
     const Context = window.AudioContext || window.webkitAudioContext;
     if (!Context || !navigator.mediaDevices?.getUserMedia) throw new Error('Microphone unavailable');
     const context = new Context();
-    const session = { context, ignoreUntil: 0 };
+    const session = { context, ignoreUntil: 0, pausedMs: 0, pendingPauseMs: 0 };
     this.session = session;
     try {
       const resume = context.resume();
@@ -45,7 +45,7 @@ export class Microphone {
       const source = context.createMediaStreamSource(session.stream);
       const analyser = context.createAnalyser();
       analyser.fftSize = 8192;
-      session.captureSeconds = analyser.fftSize / context.sampleRate;
+      session.captureSeconds = Math.min(analyser.fftSize / context.sampleRate, analysisTailSeconds(context.sampleRate));
       source.connect(analyser);
       session.source = source;
       const samples = new Float32Array(analyser.fftSize);
@@ -57,13 +57,19 @@ export class Microphone {
         });
       }
       let last = -Infinity;
+      const intervalMs = 32;
       const tick = time => {
         if (this.session !== session) return;
-        if (time - last >= 42 && context.currentTime >= session.ignoreUntil) {
+        if (time - last >= intervalMs && context.currentTime >= session.ignoreUntil) {
+          if (session.pendingPauseMs) {
+            // The chime's intentional pause is not a loss of the instrument signal.
+            session.pausedMs += Math.min(session.pendingPauseMs, time - last - intervalMs);
+            session.pendingPauseMs = 0;
+          }
           last = time;
           analyser.getFloatTimeDomainData(samples);
           const { hz, rms } = this.detector.detect(samples, context.sampleRate);
-          this.onFrame(this.tracker.update(hz, time), rms, samples, time);
+          this.onFrame(this.tracker.update(hz, time - session.pausedMs), rms, samples, time);
         }
         if (this.session === session) session.frame = requestAnimationFrame(tick);
       };
@@ -80,6 +86,7 @@ export class Microphone {
     const playbackEnd = playChime(session.context, mode);
     // Wait until the playback has cleared the analyzer's input window.
     session.ignoreUntil = playbackEnd + session.captureSeconds + .04;
+    session.pendingPauseMs = (session.ignoreUntil - session.context.currentTime) * 1000;
   }
   stop() {
     const session = this.session;

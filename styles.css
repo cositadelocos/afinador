@@ -84,7 +84,7 @@ h1 { font-size: clamp(43px,6vw,62px); line-height: 1; letter-spacing: -.074em; f
 .ticks::after { content: ""; position: absolute; inset: -3px 0; background: repeating-linear-gradient(90deg, #66776b 0 1px, transparent 1px 25%); }
 .ruler::after { content: ""; position: absolute; right: 0; top: 11px; bottom: 11px; width: 1px; background: #66776b; }
 .zero { position: absolute; top: 1px; bottom: 1px; left: calc(50% - 6px); width: 13px; border-radius: 4px; background: #bcf5ce13; border-inline: 1px solid #bcf5ce33; }
-.needle { position: absolute; z-index: 1; left: 50%; transform: translateX(-50%); transition: left .16s ease, background .18s; height: 39px; top: 3px; width: 3px; border-radius: 4px; background: #e1e9e3; }
+.needle { position: absolute; z-index: 1; left: 50%; transform: translateX(-50%); transition: left .10s ease-out, background .18s; height: 39px; top: 3px; width: 3px; border-radius: 4px; background: #e1e9e3; }
 .needle::before { content: ""; position: absolute; top: 0; left: -3px; width: 9px; height: 7px; border-radius: 3px; background: inherit; }
 .tuner[data-state=idle] .needle { background: #6d8e79; }
 .tuner[data-state=tuned] .needle { background: var(--accent); box-shadow: 0 0 9px #bcf5ce58; }
